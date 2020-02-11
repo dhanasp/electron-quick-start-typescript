@@ -1,23 +1,29 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, ipcRenderer } from "electron";
 import * as path from "path";
+import { registerMainProcessListener } from "npmModuleWithTypescript";
 
 let mainWindow: Electron.BrowserWindow;
 
 function createWindow() {
-  // Create the browser window.
+
+  // Create the browser window.  
   mainWindow = new BrowserWindow({
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
     width: 800,
+    minimizable: false,
+    maximizable: false,
+    resizable: false
   });
-
+  registerMainProcessListener(mainWindow, ipcMain);
+// WindowInitializer(mainWindow);
   // and load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, "../index.html"));
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 
   // Emitted when the window is closed.
   mainWindow.on("closed", () => {
