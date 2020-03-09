@@ -25,6 +25,6 @@
     "typescript": "^3.6.0"
   },
   "dependencies": {
-    "npmModuleWithTypescript": "file:../npmModuleWithTypescript"
+    "ElectronWindowResizer": "file:../electronWindowResizer"
   }
 }

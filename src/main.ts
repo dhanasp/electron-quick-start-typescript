@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, ipcRenderer } from "electron";
 import * as path from "path";
-import { registerMainProcessListener } from "npmModuleWithTypescript";
+import { registerMainProcessListener } from "ElectronWindowResizer";
 
 let mainWindow: Electron.BrowserWindow;
 
@@ -8,22 +8,21 @@ function createWindow() {
 
   // Create the browser window.  
   mainWindow = new BrowserWindow({
-    height: 600,
+    height: 552,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
-    width: 800,
+    width: 408,
     minimizable: false,
     maximizable: false,
     resizable: false
   });
-  registerMainProcessListener(mainWindow, ipcMain);
-// WindowInitializer(mainWindow);
+  // WindowInitializer(mainWindow);
   // and load the index.html of the app.
-  mainWindow.loadFile(path.join(__dirname, "../index.html"));
-
+  // mainWindow.loadFile(path.join(__dirname, "../index.html"));
+  mainWindow.loadURL("http://localhost:4300/#/?lang=en_US&country=US")
   // Open the DevTools.
-  //mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   // Emitted when the window is closed.
   mainWindow.on("closed", () => {
@@ -32,6 +31,7 @@ function createWindow() {
     // when you should delete the corresponding element.
     mainWindow = null;
   });
+  registerMainProcessListener(mainWindow, ipcMain);
 }
 
 // This method will be called when Electron has finished
@@ -54,6 +54,7 @@ app.on("activate", () => {
   if (mainWindow === null) {
     createWindow();
   }
+
 });
 
 // In this file you can include the rest of your app"s specific main process
