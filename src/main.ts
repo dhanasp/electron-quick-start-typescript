@@ -10,16 +10,25 @@ import * as crypto from "crypto";
 let algorithm = 'aes-256-cbc'; // you can choose many algorithm from supported openssl
 let secret = 'superSecretKey';
 let key = crypto.createHash('sha256').update(String(secret)).digest('base64').substr(0, 32);
-
+let db: Datastore;
 
 // const pathToDb = homeDir + "\work" ;
 const dbFilePath = "users.db";
 
 const dataStoreOptions: Datastore.DataStoreOptions = {
   filename: dbFilePath,
-  autoload: false,
+  autoload: true,
   timestampData: true,
   corruptAlertThreshold: 0,
+  onload(err: any) {
+    console.log(err);
+
+    if (err) {
+      console.error("error on load", err);
+      console.log("truncating users.db file");
+      truncateDbFile(dbFilePath);
+    }
+  },
 
   afterSerialization(plaintext: any) {
     const iv = crypto.randomBytes(16);
@@ -40,42 +49,12 @@ const dataStoreOptions: Datastore.DataStoreOptions = {
     return plaintext;
   }
 };
+const createDb = (dbFilePath: string) => {
+  db = new Datastore(dataStoreOptions);
+}
 
-let db: Datastore = new Datastore(dataStoreOptions);
+createDb(dbFilePath);
 
-new Promise(
-  (resolve: (value?: any) => void, reject: (value?: any) => void) => {
-    db.loadDatabase((err: Error) => {
-      if (err) {
-        console.error("error display before rejecting");
-        reject(err);
-      } else {
-        console.log("all ok. resolving promise");
-        resolve(err);
-      }
-    });
-  })
-  .then((_value: any) => { console.log("loadDatabase was successful") })
-  .catch(async (reason: any) => {
-    console.error("error on load", reason);
-    console.log("truncating users.db file");
-    try {
-      await fsPromises.truncate(dbFilePath);
-      console.log("db file truncated");
-    } catch (error) {
-      console.error("error when trying to truncate db file");
-      console.error(error);
-    } finally {
-      console.log("recreating database");
-      db = new Datastore(dataStoreOptions);
-      db.loadDatabase((err: Error) => {
-        if (!err) { return; }
-        console.error("could not reload database. Error is ", err);
-        console.error("Exiting application");
-        process.exit(1);
-      });
-    }
-  });
 
 let mainWindow: Electron.BrowserWindow;
 
@@ -148,3 +127,16 @@ app.on("activate", () => {
     createWindow();
   }
 });
+
+const truncateDbFile = (dbFilePath: string) => {
+  fsPromises.truncate(dbFilePath).then(() => {
+    console.log("Content got deleted successfully.");
+  }).catch(err => {
+    console.log("error in removing content from file - ", err);
+  }).finally(() => {
+    console.log("creating database again");
+    createDb(dbFilePath);
+  })
+
+}
+
