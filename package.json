@@ -22,9 +22,11 @@
   "devDependencies": {
     "electron": "^6.0.8",
     "tslint": "^5.19.0",
-    "typescript": "^3.6.0"
+    "typescript": "^3.6.0",
+    "uuid": "^3.3.2"
   },
   "dependencies": {
+    "@types/nedb": "^1.8.9",
     "nedb": "^1.8.0"
   }
 }

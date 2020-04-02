@@ -12,8 +12,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   btnSaveUser.addEventListener('click', () => {
     let user: any = {};
-    user.name = (document.getElementById('name') as HTMLInputElement).value;
-    user.age = (document.getElementById('age') as HTMLInputElement).value;
+    user.firstName = (document.getElementById('firstName') as HTMLInputElement).value;
+    user.lastName = (document.getElementById('lastName') as HTMLInputElement).value;
     ipcRenderer.send('save-user-request', user);
   });
 
