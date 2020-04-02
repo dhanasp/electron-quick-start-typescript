@@ -5,12 +5,54 @@ import * as path from "path";
 import * as os from 'os';
 import * as Datastore from 'nedb';
 const homeDir = os.homedir();
-import * as crypto from "crypto";
+import crypto = require('crypto'); // now is in node default module
+import { uuid } from 'uuidv4';
+import { WindowsCredentialHelper, Credentil } from "./WindowsCredentialHelper";
+
+
+let db: Datastore;
 
 let algorithm = 'aes-256-cbc'; // you can choose many algorithm from supported openssl
-let secret = 'superSecretKey';
+const windowsCredentialHelper = new WindowsCredentialHelper();
+
+function getOrCreateSecretKey(): Promise<string> {
+  let secretKey: string;
+  let secretPromise: Promise<string> = new Promise<string>((resolve, reject) => {
+    windowsCredentialHelper
+      .getCredentils("DBService", ['secretKey'])
+      .then((creds: Credentil[]) => {
+        // newSecretKey = creds['secretKey'];
+        return resolve(creds['secretKey']);
+      }).catch((err) => {
+        console.log("Error while getting creds - ", err);
+        let newSecretKey = uuid();
+        windowsCredentialHelper
+          .saveCredentils("DBService", [{ key: 'secretKey', value: newSecretKey }])
+          .then(() => {
+            console.log(`credential for ${key} got saved successfully.`);
+            return resolve(newSecretKey);
+          }).catch(err => {
+            console.log("Error while saving credentials - ", err);
+            return reject(err);
+          });
+      });
+  });
+
+  // Promise.all([]);
+  // secretPromise;
+  return secretPromise;
+}
+
+let secret: string;
+(async function () {
+  try {
+    secret = await getOrCreateSecretKey();
+  } catch (err) {
+    console.log("error while getting secret key", err);
+  }
+})();
+
 let key = crypto.createHash('sha256').update(String(secret)).digest('base64').substr(0, 32);
-let db: Datastore;
 
 // const pathToDb = homeDir + "\work" ;
 const dbFilePath = "users.db";
@@ -22,7 +64,6 @@ const dataStoreOptions: Datastore.DataStoreOptions = {
   corruptAlertThreshold: 0,
   onload(err: any) {
     console.log(err);
-
     if (err) {
       console.error("error on load", err);
       console.log("truncating users.db file");
@@ -30,15 +71,22 @@ const dataStoreOptions: Datastore.DataStoreOptions = {
     }
   },
 
-  afterSerialization(plaintext: any) {
+  // from plaintext to into cipherText
+  afterSerialization(plaintext) {
+    // console.log("Inside afterseriliazation - plaintext is ", plaintext);
     const iv = crypto.randomBytes(16);
+    const secretkey = windowsCredentialHelper.getCredentils("DBService", ['secretKey'])
+    console.log(secretkey);
+
     const aes = crypto.createCipheriv(algorithm, key, iv);
     let ciphertext = aes.update(plaintext);
     ciphertext = Buffer.concat([iv, ciphertext, aes.final()]);
     return ciphertext.toString('base64');
   },
 
-  beforeDeserialization(ciphertext: any) {
+  // from cipherText to into plainText
+  beforeDeserialization(ciphertext) {
+    // console.log("Inside before deserilization - cipherText is ", ciphertext);
     const ciphertextBytes = Buffer.from(ciphertext, 'base64')
     const iv = ciphertextBytes.slice(0, 16)
     const data = ciphertextBytes.slice(16)
@@ -49,12 +97,12 @@ const dataStoreOptions: Datastore.DataStoreOptions = {
     return plaintext;
   }
 };
-const createDb = (dbFilePath: string) => {
+
+function createDb(dbFilePath: string) {
   db = new Datastore(dataStoreOptions);
 }
 
 createDb(dbFilePath);
-
 
 let mainWindow: Electron.BrowserWindow;
 
