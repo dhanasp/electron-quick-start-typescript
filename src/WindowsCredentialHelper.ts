@@ -1,19 +1,18 @@
-// import * as logger from 'electron-log';
 import * as keytar from 'keytar';
 
 export class WindowsCredentialHelper {
-	public async getCredentils(service: string, keys: string[]): Promise<any> {
-		return new Promise(async function (resolve, _reject) {
+
+	public async getCredentials(service: string, keys: string[]): Promise<Credential[]> {
+		return new Promise(function (resolve, _reject) {
 			let promises = [];
 			keys.forEach(function (key) {
 				if (key) {
 					promises.push(keytar.getPassword('ElectronNedb', service + '_' + key));
 				}
 			});
-
 			Promise.all(promises).then(function (values) {
 				let index = 0;
-				let creds: Credentil[] = [];
+				let creds: Credential[] = [];
 				keys.forEach(function (key) {
 					creds.push({
 						key,
@@ -21,26 +20,27 @@ export class WindowsCredentialHelper {
 					});
 					index += 1;
 				});
-
 				return resolve(creds);
 			});
 		});
 	}
 
-	public async saveCredentils(service: string, creds: Credentil[]) {
-		creds.forEach(function (cred) {
+	public async saveCredentials(service: string, creds: Credential[]) {
+		let operationsArray: Promise<any>[] = [];
+		creds.forEach((cred: Credential, _index, _arr) => {
 			if (cred.key) {
 				if (cred.value) {
-					keytar.setPassword('ElectronNedb', service + '_' + cred.key, cred.value);
+					operationsArray.push(keytar.setPassword('ElectronNedb', service + '_' + cred.key, cred.value));
 				} else {
-					keytar.deletePassword('ElectronNedb', service + '_' + cred.key);
+					operationsArray.push(keytar.deletePassword('ElectronNedb', service + '_' + cred.key));
 				}
 			}
 		});
+		await Promise.all(operationsArray);
 	}
 }
 
-export interface Credentil {
+export interface Credential {
 	key: string;
 	value: string;
 }
