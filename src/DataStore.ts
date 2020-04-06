@@ -71,7 +71,7 @@ async function createAndLoadDb(key: string): Promise<Datastore> {
             await loadDb(db);
             return db;
         } catch (error) {
-            console.log("could not load DB even after truncating. Error is - ", error);
+            console.log("could not load DB even after deleting db file. Error is - ", error);
             process.exit(1);
         }
     }
