@@ -1,9 +1,12 @@
 import * as Datastore from 'nedb';
 import { promises as fsPromises } from "fs";
 import * as crypto from 'crypto'; // now is in node default module
+import * as path from "path";
+import { app } from "electron";
 
 const algorithm = 'aes-256-cbc'; // you can choose many algorithm from supported openssl
-const dbFilePath = "users.db";
+const dbFilePath = path.join(process.env.APPDATA, "ElectronNedbIntegration", "users.db");
+console.log("db file path is : ", dbFilePath);
 
 function getDataStoreOptions(key: string): Datastore.DataStoreOptions {
     const dataStoreOptions: Datastore.DataStoreOptions = {

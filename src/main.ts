@@ -62,7 +62,7 @@ function initApp() {
           }
         });
       });
-  
+
     });
     ipcMain.on('show-user-request', (_event) => {
       db.find({}).sort({ 'createdAt': 1 }).limit(2).exec(function (err: any, docs: any) {
@@ -77,12 +77,12 @@ function initApp() {
         preload: path.join(__dirname, "preload.js"),
       },
       width: 800,
-    });  
+    });
     mainWindow.loadFile(path.join(__dirname, "../index.html"));
-    console.log("loaded index.html in mainWindow");  
+    console.log("loaded index.html in mainWindow");
     // Open the DevTools.
     // mainWindow.webContents.openDevTools();
-  
+
     mainWindow.on("closed", () => {
       console.log("mainWindow closed");
       mainWindow = null;
