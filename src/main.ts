@@ -1,54 +1,112 @@
-import { app, BrowserWindow } from "electron";
+import { uuid } from 'uuidv4';
+import { WindowsCredentialHelper, Credential } from "./WindowsCredentialHelper";
+import { createDataStore } from './DataStore';
+import { app, BrowserWindow, ipcMain } from "electron";
 import * as path from "path";
+import * as Datastore from 'nedb';
 
-let mainWindow: Electron.BrowserWindow;
+const windowsCredentialHelper = new WindowsCredentialHelper();
+let mainWindow: BrowserWindow;
 
-function createWindow() {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
-    height: 600,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-    },
-    width: 800,
-  });
+async function createNewCreds(): Promise<string> {
+  let newSecretKey = uuid();
+  console.log("generated new secret key -- ", newSecretKey);
+  await windowsCredentialHelper
+    .saveCredentials("DBService", [{ key: 'secretKey', value: newSecretKey }]);
+  return newSecretKey;
+}
 
-  // and load the index.html of the app.
-  mainWindow.loadFile(path.join(__dirname, "../index.html"));
+async function getOrCreateSecretKey(): Promise<string> {
+  let creds: Credential[] = await windowsCredentialHelper
+    .getCredentials("DBService", ['secretKey']);
+  console.log("got creds from windows creds manager - ", creds);
+  if (creds.length > 0 && creds[0].key === 'secretKey') {
+    return creds[0].value;
+  } else {
+    console.log("no credentials found for DBService secretKey");
+    return await createNewCreds();
+  }
+}
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+function initApp() {
+  console.log("inside init app function");
 
-  // Emitted when the window is closed.
-  mainWindow.on("closed", () => {
-    // Dereference the window object, usually you would store windows
-    // in an array if your app supports multi windows, this is the time
-    // when you should delete the corresponding element.
-    mainWindow = null;
+  getOrCreateSecretKey().then((secretKey: string) => {
+    console.log("got secret key : ", secretKey);
+    return createDataStore(secretKey);
+  }).then((db: Datastore) => {
+    console.log("got initialized db");
+    ipcMain.on('save-user-request', (event, user) => {
+      let newUser = {
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+      db.insert(newUser, (err: any, newDoc: any) => {
+        if (err) {
+          console.error("error occurred when inserting user : ", err);
+          event.sender.send('save-user-error', `An error occurred\n${err}`);
+        } else {
+          console.log("saved user - ", newUser);
+          event.sender.send('save-user-success', newDoc);
+        }
+      });
+    });
+    ipcMain.on('delete-user-request', (_event) => {
+      let usersToDelete: string[];
+      db.find({}).sort({ 'createdAt': 1 }).limit(2).exec(function (err: any, docs: any) {
+        usersToDelete = docs.map((user: any) => user._id);
+        db.remove({ _id: { $in: usersToDelete } }, { multi: true }, function (err: any, numRemoved: any) {
+          console.log("number of removed records - ", numRemoved);
+          if (err) {
+            console.log(err);
+          }
+        });
+      });
+
+    });
+    ipcMain.on('show-user-request', (_event) => {
+      db.find({}).sort({ 'createdAt': 1 }).limit(2).exec(function (err: any, docs: any) {
+        console.log("first 2 users - ", docs);
+      });
+    });
+
+    console.log("creating browser window");
+    mainWindow = new BrowserWindow({
+      height: 600,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+      },
+      width: 800,
+    });
+    mainWindow.loadFile(path.join(__dirname, "../index.html"));
+    console.log("loaded index.html in mainWindow");
+    // Open the DevTools.
+    // mainWindow.webContents.openDevTools();
+
+    mainWindow.on("closed", () => {
+      console.log("mainWindow closed");
+      mainWindow = null;
+    });
+
+  }).catch((reason: any) => {
+    console.error("some error occurred. reason is : ", reason);
+    console.log("exiting application");
+    process.exit(1);
   });
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.on("ready", createWindow);
+app.on("ready", initApp);
 
-// Quit when all windows are closed.
 app.on("window-all-closed", () => {
-  // On OS X it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 app.on("activate", () => {
-  // On OS X it"s common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   if (mainWindow === null) {
-    createWindow();
+    initApp();
   }
 });
 
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
+console.log("end of main.ts");
